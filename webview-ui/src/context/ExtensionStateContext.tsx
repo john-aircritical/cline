@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useEvent } from "react-use"
 import { ExtensionMessage, ExtensionState } from "../../../src/shared/ExtensionMessage"
+import { WebviewMessage } from "../../../src/shared/WebviewMessage"
 import {
 	ApiConfiguration,
 	ModelInfo,
@@ -20,6 +21,7 @@ interface ExtensionStateContextType extends ExtensionState {
 	setApiConfiguration: (config: ApiConfiguration) => void
 	setCustomInstructions: (value?: string) => void
 	setAlwaysAllowReadOnly: (value: boolean) => void
+	setAutoSaveChanges: (value: boolean) => void
 	setShowAnnouncement: (value: boolean) => void
 }
 
@@ -76,7 +78,6 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 			case "partialMessage": {
 				const partialMessage = message.partialMessage!
 				setState((prevState) => {
-					// worth noting it will never be possible for a more up-to-date message to be sent here or in normal messages post since the presentAssistantContent function uses lock
 					const lastIndex = findLastIndex(prevState.clineMessages, (msg) => msg.ts === partialMessage.ts)
 					if (lastIndex !== -1) {
 						const newClineMessages = [...prevState.clineMessages]
@@ -90,7 +91,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 			case "openRouterModels": {
 				const updatedModels = message.openRouterModels ?? {}
 				setOpenRouterModels({
-					[openRouterDefaultModelId]: openRouterDefaultModelInfo, // in case the extension sent a model list without the default model
+					[openRouterDefaultModelId]: openRouterDefaultModelInfo,
 					...updatedModels,
 				})
 				break
@@ -101,7 +102,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	useEvent("message", handleMessage)
 
 	useEffect(() => {
-		vscode.postMessage({ type: "webviewDidLaunch" })
+		const message: WebviewMessage = { type: "webviewDidLaunch" }
+		vscode.postMessage(message)
 	}, [])
 
 	const contextValue: ExtensionStateContextType = {
@@ -114,6 +116,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setApiConfiguration: (value) => setState((prevState) => ({ ...prevState, apiConfiguration: value })),
 		setCustomInstructions: (value) => setState((prevState) => ({ ...prevState, customInstructions: value })),
 		setAlwaysAllowReadOnly: (value) => setState((prevState) => ({ ...prevState, alwaysAllowReadOnly: value })),
+		setAutoSaveChanges: (value) => {
+			setState((prevState) => ({ ...prevState, autoSaveChanges: value }))
+			const message: WebviewMessage = { type: "autoSaveChanges", bool: value }
+			vscode.postMessage(message)
+		},
 		setShowAnnouncement: (value) => setState((prevState) => ({ ...prevState, shouldShowAnnouncement: value })),
 	}
 

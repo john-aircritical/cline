@@ -4,6 +4,7 @@ import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validate"
 import { vscode } from "../../utils/vscode"
 import ApiOptions from "./ApiOptions"
+import { WebviewMessage } from "../../../../src/shared/WebviewMessage"
 
 const IS_DEV = false // FIXME: use flags when packaging
 
@@ -19,6 +20,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		setCustomInstructions,
 		alwaysAllowReadOnly,
 		setAlwaysAllowReadOnly,
+		autoSaveChanges,
+		setAutoSaveChanges,
 		openRouterModels,
 	} = useExtensionState()
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
@@ -30,9 +33,13 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		setApiErrorMessage(apiValidationResult)
 		setModelIdErrorMessage(modelIdValidationResult)
 		if (!apiValidationResult && !modelIdValidationResult) {
-			vscode.postMessage({ type: "apiConfiguration", apiConfiguration })
-			vscode.postMessage({ type: "customInstructions", text: customInstructions })
-			vscode.postMessage({ type: "alwaysAllowReadOnly", bool: alwaysAllowReadOnly })
+			const messages: WebviewMessage[] = [
+				{ type: "apiConfiguration", apiConfiguration },
+				{ type: "customInstructions", text: customInstructions ?? "" },
+				{ type: "alwaysAllowReadOnly", bool: alwaysAllowReadOnly ?? false },
+				{ type: "autoSaveChanges", bool: autoSaveChanges ?? false }
+			]
+			messages.forEach(msg => vscode.postMessage(msg))
 			onDone()
 		}
 	}
@@ -41,18 +48,6 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		setApiErrorMessage(undefined)
 		setModelIdErrorMessage(undefined)
 	}, [apiConfiguration])
-
-	// validate as soon as the component is mounted
-	/*
-	useEffect will use stale values of variables if they are not included in the dependency array. so trying to use useEffect with a dependency array of only one value for example will use any other variables' old values. In most cases you don't want this, and should opt to use react-use hooks.
-	
-	useEffect(() => {
-		// uses someVar and anotherVar
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [someVar])
-
-	If we only want to run code once on mount we can use react-use's useEffectOnce or useMount
-	*/
 
 	const handleResetState = () => {
 		vscode.postMessage({ type: "resetState" })
@@ -127,6 +122,22 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 						}}>
 						When enabled, Cline will automatically view directory contents and read files without requiring
 						you to click the Approve button.
+					</p>
+				</div>
+
+				<div style={{ marginBottom: 5 }}>
+					<VSCodeCheckbox
+						checked={autoSaveChanges}
+						onChange={(e: any) => setAutoSaveChanges(e.target.checked)}>
+						<span style={{ fontWeight: "500" }}>Auto-save & Auto-Create files</span>
+					</VSCodeCheckbox>
+					<p
+						style={{
+							fontSize: "12px",
+							marginTop: "5px",
+							color: "var(--vscode-descriptionForeground)",
+						}}>
+						When enabled, JohnBot will automatically save file changes without showing the save/reject dialog.
 					</p>
 				</div>
 

@@ -46,6 +46,7 @@ type GlobalStateKey =
 	| "lastShownAnnouncementId"
 	| "customInstructions"
 	| "alwaysAllowReadOnly"
+	| "autoSaveChanges"
 	| "taskHistory"
 	| "openAiBaseUrl"
 	| "openAiModelId"
@@ -410,6 +411,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						}
 						await this.postStateToWebview()
 						break
+					case "autoSaveChanges":
+						await this.updateGlobalState("autoSaveChanges", message.bool ?? undefined)
+						await this.postStateToWebview()
+						break
 					case "askResponse":
 						this.cline?.handleWebviewAskResponse(message.askResponse!, message.text, message.images)
 						break
@@ -653,11 +658,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							modelInfo.cacheReadsPrice = 0.3
 							break
 						case "anthropic/claude-3-5-haiku":
-						case "anthropic/claude-3-5-haiku:beta":
-						case "anthropic/claude-3-5-haiku-20241022":
-						case "anthropic/claude-3-5-haiku-20241022:beta":
-						case "anthropic/claude-3.5-haiku":
-						case "anthropic/claude-3.5-haiku:beta":
 						case "anthropic/claude-3.5-haiku-20241022":
 						case "anthropic/claude-3.5-haiku-20241022:beta":
 							modelInfo.supportsPromptCache = true
@@ -781,7 +781,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	async getStateToPostToWebview() {
-		const { apiConfiguration, lastShownAnnouncementId, customInstructions, alwaysAllowReadOnly, taskHistory } =
+		const { apiConfiguration, lastShownAnnouncementId, customInstructions, alwaysAllowReadOnly, taskHistory, autoSaveChanges } =
 			await this.getState()
 		return {
 			version: this.context.extension?.packageJSON?.version ?? "",
@@ -790,6 +790,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			alwaysAllowReadOnly,
 			uriScheme: vscode.env.uriScheme,
 			clineMessages: this.cline?.clineMessages || [],
+			autoSaveChanges,
 			taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
 			shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
 		}
@@ -876,6 +877,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			customInstructions,
 			alwaysAllowReadOnly,
 			taskHistory,
+			autoSaveChanges,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -905,6 +907,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("alwaysAllowReadOnly") as Promise<boolean | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
+			this.getGlobalState("autoSaveChanges") as Promise<boolean | undefined>, 
+
 		])
 
 		let apiProvider: ApiProvider
@@ -947,11 +951,13 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				azureApiVersion,
 				openRouterModelId,
 				openRouterModelInfo,
+				
 			},
 			lastShownAnnouncementId,
 			customInstructions,
 			alwaysAllowReadOnly: alwaysAllowReadOnly ?? false,
 			taskHistory,
+			autoSaveChanges,
 		}
 	}
 

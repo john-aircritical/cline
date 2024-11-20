@@ -1,96 +1,109 @@
-// type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
-
 import { ApiConfiguration, ModelInfo } from "./api"
 import { HistoryItem } from "./HistoryItem"
 
-// webview will hold state
-export interface ExtensionMessage {
-	type:
-		| "action"
-		| "state"
-		| "selectedImages"
-		| "ollamaModels"
-		| "lmStudioModels"
-		| "theme"
-		| "workspaceUpdated"
-		| "invoke"
-		| "partialMessage"
-		| "openRouterModels"
-	text?: string
-	action?: "chatButtonClicked" | "settingsButtonClicked" | "historyButtonClicked" | "didBecomeVisible"
-	invoke?: "sendMessage" | "primaryButtonClick" | "secondaryButtonClick"
-	state?: ExtensionState
-	images?: string[]
-	ollamaModels?: string[]
-	lmStudioModels?: string[]
-	filePaths?: string[]
-	partialMessage?: ClineMessage
-	openRouterModels?: Record<string, ModelInfo>
+export type ExtensionMessageBase = {
+    text?: string
+    images?: string[]
+    bool?: boolean
+    apiConfiguration?: ApiConfiguration
+    state?: ExtensionState
+    filePaths?: string[]
+    partialMessage?: ClineMessage
+    openRouterModels?: Record<string, ModelInfo>
+    ollamaModels?: string[]
+    lmStudioModels?: string[]
 }
 
+export type ExtensionMessage = ExtensionMessageBase & (
+    | { type: "action"; action: "chatButtonClicked" | "settingsButtonClicked" | "historyButtonClicked" | "didBecomeVisible" }
+    | { type: "state"; state: ExtensionState }
+    | { type: "selectedImages"; images: string[] }
+    | { type: "ollamaModels"; ollamaModels: string[] }
+    | { type: "lmStudioModels"; lmStudioModels: string[] }
+    | { type: "theme"; text: string }
+    | { type: "workspaceUpdated"; filePaths: string[] }
+    | { type: "invoke"; invoke: "sendMessage" | "primaryButtonClick" | "secondaryButtonClick" }
+    | { type: "partialMessage"; partialMessage: ClineMessage }
+    | { type: "openRouterModels"; openRouterModels: Record<string, ModelInfo> }
+    | { type: "apiConfiguration"; apiConfiguration: ApiConfiguration }
+    | { type: "customInstructions"; text: string }
+    | { type: "alwaysAllowReadOnly"; bool: boolean }
+    | { type: "autoSaveChanges"; bool: boolean }
+    | { type: "resetState" }
+    | { type: "webviewDidLaunch" }
+    | { type: "newTask"; text: string; images: string[] }
+    | { type: "askResponse"; askResponse: "messageResponse" | "yesButtonClicked" | "noButtonClicked"; text?: string; images?: string[] }
+    | { type: "clearTask" }
+    | { type: "didShowAnnouncement" }
+    | { type: "selectImages" }
+    | { type: "refreshOpenRouterModels" }
+    | { type: "cancelTask" }
+)
+
 export interface ExtensionState {
-	version: string
-	apiConfiguration?: ApiConfiguration
-	customInstructions?: string
-	alwaysAllowReadOnly?: boolean
-	uriScheme?: string
-	clineMessages: ClineMessage[]
-	taskHistory: HistoryItem[]
-	shouldShowAnnouncement: boolean
+    version: string
+    apiConfiguration?: ApiConfiguration
+    customInstructions?: string
+    alwaysAllowReadOnly?: boolean
+    autoSaveChanges?: boolean
+    uriScheme?: string
+    clineMessages: ClineMessage[]
+    taskHistory: HistoryItem[]
+    shouldShowAnnouncement: boolean
 }
 
 export interface ClineMessage {
-	ts: number
-	type: "ask" | "say"
-	ask?: ClineAsk
-	say?: ClineSay
-	text?: string
-	images?: string[]
-	partial?: boolean
+    ts: number
+    type: "ask" | "say"
+    ask?: ClineAsk
+    say?: ClineSay
+    text?: string
+    images?: string[]
+    partial?: boolean
 }
 
 export type ClineAsk =
-	| "followup"
-	| "command"
-	| "command_output"
-	| "completion_result"
-	| "tool"
-	| "api_req_failed"
-	| "resume_task"
-	| "resume_completed_task"
-	| "mistake_limit_reached"
-	| "browser_action_launch"
+    | "followup"
+    | "command"
+    | "command_output"
+    | "completion_result"
+    | "tool"
+    | "api_req_failed"
+    | "resume_task"
+    | "resume_completed_task"
+    | "mistake_limit_reached"
+    | "browser_action_launch"
 
 export type ClineSay =
-	| "task"
-	| "error"
-	| "api_req_started"
-	| "api_req_finished"
-	| "text"
-	| "completion_result"
-	| "user_feedback"
-	| "user_feedback_diff"
-	| "api_req_retried"
-	| "command_output"
-	| "tool"
-	| "shell_integration_warning"
-	| "browser_action"
-	| "browser_action_result"
+    | "task"
+    | "error"
+    | "api_req_started"
+    | "api_req_finished"
+    | "text"
+    | "completion_result"
+    | "user_feedback"
+    | "user_feedback_diff"
+    | "api_req_retried"
+    | "command_output"
+    | "tool"
+    | "shell_integration_warning"
+    | "browser_action"
+    | "browser_action_result"
 
 export interface ClineSayTool {
-	tool:
-		| "editedExistingFile"
-		| "newFileCreated"
-		| "readFile"
-		| "listFilesTopLevel"
-		| "listFilesRecursive"
-		| "listCodeDefinitionNames"
-		| "searchFiles"
-	path?: string
-	diff?: string
-	content?: string
-	regex?: string
-	filePattern?: string
+    tool:
+        | "editedExistingFile"
+        | "newFileCreated"
+        | "readFile"
+        | "listFilesTopLevel"
+        | "listFilesRecursive"
+        | "listCodeDefinitionNames"
+        | "searchFiles"
+    path?: string
+    diff?: string
+    content?: string
+    regex?: string
+    filePattern?: string
 }
 
 // must keep in sync with system prompt
@@ -98,27 +111,27 @@ export const browserActions = ["launch", "click", "type", "scroll_down", "scroll
 export type BrowserAction = (typeof browserActions)[number]
 
 export interface ClineSayBrowserAction {
-	action: BrowserAction
-	coordinate?: string
-	text?: string
+    action: BrowserAction
+    coordinate?: string
+    text?: string
 }
 
 export type BrowserActionResult = {
-	screenshot?: string
-	logs?: string
-	currentUrl?: string
-	currentMousePosition?: string
+    screenshot?: string
+    logs?: string
+    currentUrl?: string
+    currentMousePosition?: string
 }
 
 export interface ClineApiReqInfo {
-	request?: string
-	tokensIn?: number
-	tokensOut?: number
-	cacheWrites?: number
-	cacheReads?: number
-	cost?: number
-	cancelReason?: ClineApiReqCancelReason
-	streamingFailedMessage?: string
+    request?: string
+    tokensIn?: number
+    tokensOut?: number
+    cacheWrites?: number
+    cacheReads?: number
+    cost?: number
+    cancelReason?: ClineApiReqCancelReason
+    streamingFailedMessage?: string
 }
 
 export type ClineApiReqCancelReason = "streaming_failed" | "user_cancelled"
