@@ -7,6 +7,9 @@ export interface WebviewMessage {
 		| "alwaysAllowReadOnly"
 		| "autoSaveChanges"
 		| "autoCommands"
+		| "enableLargeFileCheck"
+		| "largeFileCheckMaxSize"
+		| "largeFileCheckChunkSize"
 		| "webviewDidLaunch"
 		| "newTask"
 		| "askResponse"
@@ -26,6 +29,7 @@ export interface WebviewMessage {
 		| "cancelTask"
 		| "refreshOpenRouterModels"
 	text?: string
+	number?: number
 	askResponse?: ClineAskResponse
 	apiConfiguration?: ApiConfiguration
 	images?: string[]

@@ -42,16 +42,19 @@ export type ExtensionMessage = ExtensionMessageBase & (
 )
 
 export interface ExtensionState {
-    version: string
-    apiConfiguration?: ApiConfiguration
-    customInstructions?: string
-    alwaysAllowReadOnly?: boolean
+	version: string
+	apiConfiguration?: ApiConfiguration
+	customInstructions?: string
+	alwaysAllowReadOnly?: boolean
+	enableLargeFileCheck?: boolean
+	largeFileCheckMaxSize?: number
+	largeFileCheckChunkSize?: number
     autoSaveChanges?: boolean
     autoCommands?: boolean
-    uriScheme?: string
-    clineMessages: ClineMessage[]
-    taskHistory: HistoryItem[]
-    shouldShowAnnouncement: boolean
+	uriScheme?: string
+	clineMessages: ClineMessage[]
+	taskHistory: HistoryItem[]
+	shouldShowAnnouncement: boolean
 }
 
 export interface ClineMessage {
@@ -93,19 +96,21 @@ export type ClineSay =
     | "browser_action_result"
 
 export interface ClineSayTool {
-    tool:
-        | "editedExistingFile"
-        | "newFileCreated"
-        | "readFile"
-        | "listFilesTopLevel"
-        | "listFilesRecursive"
-        | "listCodeDefinitionNames"
-        | "searchFiles"
-    path?: string
-    diff?: string
-    content?: string
-    regex?: string
-    filePattern?: string
+	tool:
+		| "editedExistingFile"
+		| "newFileCreated"
+		| "readFile"
+		| "readNextChunk"
+		| "listFilesTopLevel"
+		| "listFilesRecursive"
+		| "listCodeDefinitionNames"
+		| "searchFiles"
+	path?: string
+	diff?: string
+	content?: string
+	regex?: string
+	filePattern?: string
+	offset?: number
 }
 
 // must keep in sync with system prompt

@@ -272,7 +272,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				disableAutoScrollRef.current = false
 			}
 		},
-		[messages.length, clineAsk]
+		[messages.length, clineAsk],
 	)
 
 	const startNewTask = useCallback(() => {
@@ -357,7 +357,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					const newImages = message.images ?? []
 					if (newImages.length > 0) {
 						setSelectedImages((prevImages) =>
-							[...prevImages, ...newImages].slice(0, MAX_IMAGES_PER_MESSAGE)
+							[...prevImages, ...newImages].slice(0, MAX_IMAGES_PER_MESSAGE),
 						)
 					}
 					break
@@ -382,7 +382,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 			handleSendMessage,
 			handlePrimaryButtonClick,
 			handleSecondaryButtonClick,
-		]
+		],
 	)
 
 	useEvent("message", handleMessage)
@@ -506,9 +506,9 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					})
 				},
 				10,
-				{ immediate: true }
+				{ immediate: true },
 			),
-		[]
+		[],
 	)
 
 	const scrollToBottomAuto = useCallback(() => {
@@ -568,7 +568,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				}
 			}
 		},
-		[groupedMessages, expandedRows, scrollToBottomAuto, isAtBottom]
+		[groupedMessages, expandedRows, scrollToBottomAuto, isAtBottom],
 	)
 
 	const handleRowHeightChange = useCallback(
@@ -583,7 +583,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				}
 			}
 		},
-		[scrollToBottomSmooth, scrollToBottomAuto]
+		[scrollToBottomSmooth, scrollToBottomAuto],
 	)
 
 	useEffect(() => {
@@ -641,7 +641,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				/>
 			)
 		},
-		[expandedRows, modifiedMessages, groupedMessages.length, toggleRowExpansion, handleRowHeightChange]
+		[expandedRows, modifiedMessages, groupedMessages.length, toggleRowExpansion, handleRowHeightChange],
 	)
 
 	return (

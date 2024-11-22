@@ -11,7 +11,7 @@ import { ApiHandler, buildApiHandler } from "../api"
 import { ApiStream } from "../api/transform/stream"
 import { DiffViewProvider } from "../integrations/editor/DiffViewProvider"
 import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
-import { extractTextFromFile } from "../integrations/misc/extract-text"
+import { extractTextFromFile, extractNextChunk } from "../integrations/misc/extract-text"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
@@ -65,6 +65,9 @@ export class Cline {
 	private didEditFile: boolean = false
 	customInstructions?: string
 	alwaysAllowReadOnly: boolean
+	enableLargeFileCheck: boolean
+	largeFileCheckMaxSize: number
+	largeFileCheckChunkSize: number
 	apiConversationHistory: Anthropic.MessageParam[] = []
 	clineMessages: ClineMessage[] = []
 	private askResponse?: ClineAskResponse
@@ -94,9 +97,12 @@ export class Cline {
 		apiConfiguration: ApiConfiguration,
 		customInstructions?: string,
 		alwaysAllowReadOnly?: boolean,
+		enableLargeFileCheck?: boolean,
+		largeFileCheckMaxSize?: number,
+		largeFileCheckChunkSize?: number,
 		task?: string,
 		images?: string[],
-		historyItem?: HistoryItem
+		historyItem?: HistoryItem,
 	) {
 		this.providerRef = new WeakRef(provider)
 		this.api = buildApiHandler(apiConfiguration)
@@ -106,6 +112,9 @@ export class Cline {
 		this.diffViewProvider = new DiffViewProvider(cwd)
 		this.customInstructions = customInstructions
 		this.alwaysAllowReadOnly = alwaysAllowReadOnly ?? false
+		this.enableLargeFileCheck = enableLargeFileCheck ?? false
+		this.largeFileCheckMaxSize = largeFileCheckMaxSize ?? 128
+		this.largeFileCheckChunkSize = largeFileCheckChunkSize ?? 10
 
 		if (historyItem) {
 			this.taskId = historyItem.id
@@ -196,7 +205,7 @@ export class Cline {
 				this.clineMessages[
 					findLastIndex(
 						this.clineMessages,
-						(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
+						(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"),
 					)
 				]
 			await this.providerRef.deref()?.updateTaskHistory({
@@ -220,7 +229,7 @@ export class Cline {
 	async ask(
 		type: ClineAsk,
 		text?: string,
-		partial?: boolean
+		partial?: boolean,
 	): Promise<{ response: ClineAskResponse; text?: string; images?: string[] }> {
 		// If this Cline instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background, in which case we don't want to send its result to the webview as it is attached to a new instance of Cline now. So we can safely ignore the result of any active promises, and this class will be deallocated. (Although we set Cline = undefined in provider, that simply removes the reference to this instance, but the instance is still alive until this promise resolves or rejects.)
 		if (this.abort) {
@@ -381,7 +390,7 @@ export class Cline {
 			"error",
 			`Cline tried to use ${toolName}${
 				relPath ? ` for '${relPath.toPosix()}'` : ""
-			} without value for required parameter '${paramName}'. Retrying...`
+			} without value for required parameter '${paramName}'. Retrying...`,
 		)
 		return formatResponse.toolError(formatResponse.missingToolParameterError(paramName))
 	}
@@ -413,7 +422,7 @@ export class Cline {
 		// Remove any resume messages that may have been added before
 		const lastRelevantMessageIndex = findLastIndex(
 			modifiedClineMessages,
-			(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
+			(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"),
 		)
 		if (lastRelevantMessageIndex !== -1) {
 			modifiedClineMessages.splice(lastRelevantMessageIndex + 1)
@@ -422,7 +431,7 @@ export class Cline {
 		// since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
 		const lastApiReqStartedIndex = findLastIndex(
 			modifiedClineMessages,
-			(m) => m.type === "say" && m.say === "api_req_started"
+			(m) => m.type === "say" && m.say === "api_req_started",
 		)
 		if (lastApiReqStartedIndex !== -1) {
 			const lastApiReqStarted = modifiedClineMessages[lastApiReqStartedIndex]
@@ -527,7 +536,7 @@ export class Cline {
 
 				if (hasToolUse) {
 					const toolUseBlocks = content.filter(
-						(block) => block.type === "tool_use"
+						(block) => block.type === "tool_use",
 					) as Anthropic.Messages.ToolUseBlock[]
 					const toolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => ({
 						type: "tool_result",
@@ -553,17 +562,17 @@ export class Cline {
 						: [{ type: "text", text: previousAssistantMessage.content }]
 
 					const toolUseBlocks = assistantContent.filter(
-						(block) => block.type === "tool_use"
+						(block) => block.type === "tool_use",
 					) as Anthropic.Messages.ToolUseBlock[]
 
 					if (toolUseBlocks.length > 0) {
 						const existingToolResults = existingUserContent.filter(
-							(block) => block.type === "tool_result"
+							(block) => block.type === "tool_result",
 						) as Anthropic.ToolResultBlockParam[]
 
 						const missingToolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks
 							.filter(
-								(toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id)
+								(toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id),
 							)
 							.map((toolUse) => ({
 								type: "tool_result",
@@ -733,7 +742,7 @@ export class Cline {
 					`Command is still running in the user's terminal.${
 						result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
 					}\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
-					userFeedback.images
+					userFeedback.images,
 				),
 			]
 		}
@@ -762,7 +771,7 @@ export class Cline {
 			const previousRequest = this.clineMessages[previousApiReqIndex]
 			if (previousRequest && previousRequest.text) {
 				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(
-					previousRequest.text
+					previousRequest.text,
 				)
 				const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
 				const contextWindow = this.api.getModel().info.contextWindow || 128_000
@@ -785,7 +794,7 @@ export class Cline {
 			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
 			const { response } = await this.ask(
 				"api_req_failed",
-				error.message ?? JSON.stringify(serializeError(error), null, 2)
+				error.message ?? JSON.stringify(serializeError(error), null, 2),
 			)
 			if (response !== "yesButtonClicked") {
 				// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
@@ -880,6 +889,10 @@ export class Cline {
 							return `[${block.name} for '${block.params.command}']`
 						case "read_file":
 							return `[${block.name} for '${block.params.path}']`
+						case "read_next_chunk":
+							return `[${block.name} for '${block.params.path}'${
+								block.params.offset ? ` with offset '${block.params.offset}'` : ""
+							}']`
 						case "write_to_file":
 							return `[${block.name} for '${block.params.path}']`
 						case "search_files":
@@ -948,7 +961,7 @@ export class Cline {
 						if (response === "messageResponse") {
 							await this.say("user_feedback", text, images)
 							pushToolResult(
-								formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images)
+								formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images),
 							)
 							// this.userMessageContent.push({
 							// 	type: "text",
@@ -981,7 +994,7 @@ export class Cline {
 					const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
 					await this.say(
 						"error",
-						`Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
+						`Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`,
 					)
 					// this.toolResults.push({
 					// 	type: "tool_result",
@@ -1007,7 +1020,7 @@ export class Cline {
 							.split("")
 							.map((char) => `(?:${char})?`)
 							.join("")}$`,
-						"g"
+						"g",
 					)
 					return text.replace(tagRegex, "")
 				}
@@ -1111,8 +1124,8 @@ export class Cline {
 										? formatResponse.createPrettyPatch(
 												relPath,
 												this.diffViewProvider.originalContent,
-												newContent
-										  )
+												newContent,
+											)
 										: undefined,
 								} satisfies ClineSayTool)
 								const didApprove = await askApproval("tool", completeMessage)
@@ -1130,7 +1143,7 @@ export class Cline {
 											tool: fileExists ? "editedExistingFile" : "newFileCreated",
 											path: getReadablePath(cwd, relPath),
 											diff: userEdits,
-										} satisfies ClineSayTool)
+										} satisfies ClineSayTool),
 									)
 									pushToolResult(
 										`The user made the following updates to your content:\n\n${userEdits}\n\n` +
@@ -1140,11 +1153,11 @@ export class Cline {
 											`1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
 											`2. Proceed with the task using this updated file content as the new baseline.\n` +
 											`3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
-											`${newProblemsMessage}`
+											`${newProblemsMessage}`,
 									)
 								} else {
 									pushToolResult(
-										`The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`
+										`The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`,
 									)
 								}
 								await this.diffViewProvider.reset()
@@ -1195,12 +1208,66 @@ export class Cline {
 									}
 								}
 								// now execute the tool like normal
-								const content = await extractTextFromFile(absolutePath)
+								const content = await extractTextFromFile(absolutePath, this.enableLargeFileCheck, this.largeFileCheckMaxSize, this.largeFileCheckChunkSize)
 								pushToolResult(content)
 								break
 							}
 						} catch (error) {
 							await handleError("reading file", error)
+							break
+						}
+					}
+					case "read_next_chunk": {
+						const relPath: string | undefined = block.params.path
+						const offset: string | undefined = block.params.offset
+						const sharedMessageProps: ClineSayTool = {
+							tool: "readNextChunk",
+							path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+						}
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: undefined,
+								} satisfies ClineSayTool)
+								if (this.alwaysAllowReadOnly) {
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (!relPath) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("read_next_chunk", "path"))
+									break
+								}
+								if (!offset) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("read_next_chunk", "offset"))
+									break
+								}
+								this.consecutiveMistakeCount = 0
+								const absolutePath = path.resolve(cwd, relPath)
+								const completeMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: absolutePath,
+								} satisfies ClineSayTool)
+								if (this.alwaysAllowReadOnly) {
+									await this.say("tool", completeMessage, undefined, false)
+								} else {
+									const didApprove = await askApproval("tool", completeMessage)
+									if (!didApprove) {
+										break
+									}
+								}
+								// now execute the tool like normal
+								const content = await extractNextChunk(absolutePath, parseInt(offset), this.largeFileCheckMaxSize, this.largeFileCheckChunkSize)
+								pushToolResult(content)
+								break
+							}
+						} catch (error) {
+							await handleError("reading next chunk", error)
 							break
 						}
 					}
@@ -1276,7 +1343,7 @@ export class Cline {
 								if (!relDirPath) {
 									this.consecutiveMistakeCount++
 									pushToolResult(
-										await this.sayAndCreateMissingParamError("list_code_definition_names", "path")
+										await this.sayAndCreateMissingParamError("list_code_definition_names", "path"),
 									)
 									break
 								}
@@ -1381,7 +1448,7 @@ export class Cline {
 									await this.ask(
 										"browser_action_launch",
 										removeClosingTag("url", url),
-										block.partial
+										block.partial,
 									).catch(() => {})
 								} else {
 									await this.say(
@@ -1392,7 +1459,7 @@ export class Cline {
 											text: removeClosingTag("text", text),
 										} satisfies ClineSayBrowserAction),
 										undefined,
-										block.partial
+										block.partial,
 									)
 								}
 								break
@@ -1402,7 +1469,7 @@ export class Cline {
 									if (!url) {
 										this.consecutiveMistakeCount++
 										pushToolResult(
-											await this.sayAndCreateMissingParamError("browser_action", "url")
+											await this.sayAndCreateMissingParamError("browser_action", "url"),
 										)
 										await this.browserSession.closeBrowser()
 										break
@@ -1424,7 +1491,10 @@ export class Cline {
 										if (!coordinate) {
 											this.consecutiveMistakeCount++
 											pushToolResult(
-												await this.sayAndCreateMissingParamError("browser_action", "coordinate")
+												await this.sayAndCreateMissingParamError(
+													"browser_action",
+													"coordinate",
+												),
 											)
 											await this.browserSession.closeBrowser()
 											break // can't be within an inner switch
@@ -1434,7 +1504,7 @@ export class Cline {
 										if (!text) {
 											this.consecutiveMistakeCount++
 											pushToolResult(
-												await this.sayAndCreateMissingParamError("browser_action", "text")
+												await this.sayAndCreateMissingParamError("browser_action", "text"),
 											)
 											await this.browserSession.closeBrowser()
 											break
@@ -1449,7 +1519,7 @@ export class Cline {
 											text,
 										} satisfies ClineSayBrowserAction),
 										undefined,
-										false
+										false,
 									)
 									switch (action) {
 										case "click":
@@ -1482,15 +1552,15 @@ export class Cline {
 												`The browser action has been executed. The console logs and screenshot have been captured for your analysis.\n\nConsole logs:\n${
 													browserActionResult.logs || "(No new logs)"
 												}\n\n(REMEMBER: if you need to proceed to using non-\`browser_action\` tools or launch a new browser, you MUST first close this browser. For example, if after analyzing the logs and screenshot you need to edit a file, you must first close the browser before you can use the write_to_file tool.)`,
-												browserActionResult.screenshot ? [browserActionResult.screenshot] : []
-											)
+												browserActionResult.screenshot ? [browserActionResult.screenshot] : [],
+											),
 										)
 										break
 									case "close":
 										pushToolResult(
 											formatResponse.toolResult(
-												`The browser has been closed. You may now proceed to using other tools.`
-											)
+												`The browser has been closed. You may now proceed to using other tools.`,
+											),
 										)
 										break
 								}
@@ -1507,14 +1577,14 @@ export class Cline {
 						try {
 							if (block.partial) {
 								await this.ask("command", removeClosingTag("command", command), block.partial).catch(
-									() => {}
+									() => {},
 								)
 								break
 							} else {
 								if (!command) {
 									this.consecutiveMistakeCount++
 									pushToolResult(
-										await this.sayAndCreateMissingParamError("execute_command", "command")
+										await this.sayAndCreateMissingParamError("execute_command", "command"),
 									)
 									break
 								}
@@ -1541,14 +1611,14 @@ export class Cline {
 						try {
 							if (block.partial) {
 								await this.ask("followup", removeClosingTag("question", question), block.partial).catch(
-									() => {}
+									() => {},
 								)
 								break
 							} else {
 								if (!question) {
 									this.consecutiveMistakeCount++
 									pushToolResult(
-										await this.sayAndCreateMissingParamError("ask_followup_question", "question")
+										await this.sayAndCreateMissingParamError("ask_followup_question", "question"),
 									)
 									break
 								}
@@ -1599,7 +1669,7 @@ export class Cline {
 										await this.ask(
 											"command",
 											removeClosingTag("command", command),
-											block.partial
+											block.partial,
 										).catch(() => {})
 									} else {
 										// last message is completion_result
@@ -1608,12 +1678,12 @@ export class Cline {
 											"completion_result",
 											removeClosingTag("result", result),
 											undefined,
-											false
+											false,
 										)
 										await this.ask(
 											"command",
 											removeClosingTag("command", command),
-											block.partial
+											block.partial,
 										).catch(() => {})
 									}
 								} else {
@@ -1622,7 +1692,7 @@ export class Cline {
 										"completion_result",
 										removeClosingTag("result", result),
 										undefined,
-										block.partial
+										block.partial,
 									)
 								}
 								break
@@ -1630,7 +1700,7 @@ export class Cline {
 								if (!result) {
 									this.consecutiveMistakeCount++
 									pushToolResult(
-										await this.sayAndCreateMissingParamError("attempt_completion", "result")
+										await this.sayAndCreateMissingParamError("attempt_completion", "result"),
 									)
 									break
 								}
@@ -1731,7 +1801,7 @@ export class Cline {
 
 	async recursivelyMakeClineRequests(
 		userContent: UserContent,
-		includeFileDetails: boolean = false
+		includeFileDetails: boolean = false,
 	): Promise<boolean> {
 		if (this.abort) {
 			throw new Error("Cline instance aborted")
@@ -1742,7 +1812,7 @@ export class Cline {
 				"mistake_limit_reached",
 				this.api.getModel().id.includes("claude")
 					? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-					: "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities."
+					: "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities.",
 			)
 			if (response === "messageResponse") {
 				userContent.push(
@@ -1752,7 +1822,7 @@ export class Cline {
 							text: formatResponse.tooManyMistakes(text),
 						} as Anthropic.Messages.TextBlockParam,
 						...formatResponse.imageBlocks(images),
-					]
+					],
 				)
 			}
 			this.consecutiveMistakeCount = 0
@@ -1768,7 +1838,7 @@ export class Cline {
 			JSON.stringify({
 				request:
 					userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n") + "\n\nLoading...",
-			})
+			}),
 		)
 
 		const [parsedUserContent, environmentDetails] = await this.loadContext(userContent, includeFileDetails)
@@ -1810,7 +1880,7 @@ export class Cline {
 							inputTokens,
 							outputTokens,
 							cacheWriteTokens,
-							cacheReadTokens
+							cacheReadTokens,
 						),
 					cancelReason,
 					streamingFailedMessage,
@@ -1924,7 +1994,7 @@ export class Cline {
 					this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
 					await abortStream(
 						"streaming_failed",
-						error.message ?? JSON.stringify(serializeError(error), null, 2)
+						error.message ?? JSON.stringify(serializeError(error), null, 2),
 					)
 					const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
 					if (history) {
@@ -1991,7 +2061,7 @@ export class Cline {
 				// if there's no assistant_responses, that means we got no text or tool_use content blocks from API which we should assume is an error
 				await this.say(
 					"error",
-					"Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
+					"Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output.",
 				)
 				await this.addToApiConversationHistory({
 					role: "assistant",
@@ -2037,7 +2107,7 @@ export class Cline {
 										}
 									}
 									return contentBlock
-								})
+								}),
 							)
 							return {
 								...block,
@@ -2046,7 +2116,7 @@ export class Cline {
 						}
 					}
 					return block
-				})
+				}),
 			),
 			this.getEnvironmentDetails(includeFileDetails),
 		])

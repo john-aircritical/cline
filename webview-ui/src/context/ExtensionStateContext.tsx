@@ -23,6 +23,9 @@ interface ExtensionStateContextType extends ExtensionState {
 	setAlwaysAllowReadOnly: (value: boolean) => void
 	setAutoSaveChanges: (value: boolean) => void
 	setAutoCommands: (value: boolean) => void
+	setEnableLargeFileCheck: (value: boolean) => void
+	setLargeFileCheckMaxSize: (value: number) => void
+	setLargeFileCheckChunkSize: (value: number) => void
 	setShowAnnouncement: (value: boolean) => void
 }
 
@@ -60,7 +63,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 							config.lmStudioModelId,
 							config.geminiApiKey,
 							config.openAiNativeApiKey,
-					  ].some((key) => key !== undefined)
+						].some((key) => key !== undefined)
 					: false
 				setShowWelcome(!hasKey)
 				setDidHydrateState(true)
@@ -117,16 +120,6 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setApiConfiguration: (value) => setState((prevState) => ({ ...prevState, apiConfiguration: value })),
 		setCustomInstructions: (value) => setState((prevState) => ({ ...prevState, customInstructions: value })),
 		setAlwaysAllowReadOnly: (value) => setState((prevState) => ({ ...prevState, alwaysAllowReadOnly: value })),
-		setAutoSaveChanges: (value) => {
-			setState((prevState) => ({ ...prevState, autoSaveChanges: value }))
-			const message: WebviewMessage = { type: "autoSaveChanges", bool: value }
-			vscode.postMessage(message)
-		},
-		setAutoCommands: (value) => {
-			setState((prevState) => ({ ...prevState, autoCommands: value }))
-			const message: WebviewMessage = { type: "autoCommands", bool: value }
-			vscode.postMessage(message)
-		},
 		setShowAnnouncement: (value) => setState((prevState) => ({ ...prevState, shouldShowAnnouncement: value })),
 	}
 
