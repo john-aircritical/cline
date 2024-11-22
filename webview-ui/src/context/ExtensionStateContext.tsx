@@ -34,6 +34,15 @@ const ExtensionStateContext = createContext<ExtensionStateContextType | undefine
 export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [state, setState] = useState<ExtensionState>({
 		version: "",
+		apiConfiguration: undefined,
+		customInstructions: undefined,
+		alwaysAllowReadOnly: undefined,
+		enableLargeFileCheck: undefined,
+		largeFileCheckMaxSize: undefined,
+		largeFileCheckChunkSize: undefined,
+		autoSaveChanges: undefined,
+		autoCommands: undefined,
+		uriScheme: undefined,
 		clineMessages: [],
 		taskHistory: [],
 		shouldShowAnnouncement: false,
@@ -120,6 +129,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setApiConfiguration: (value) => setState((prevState) => ({ ...prevState, apiConfiguration: value })),
 		setCustomInstructions: (value) => setState((prevState) => ({ ...prevState, customInstructions: value })),
 		setAlwaysAllowReadOnly: (value) => setState((prevState) => ({ ...prevState, alwaysAllowReadOnly: value })),
+		setAutoSaveChanges: (value) => setState((prevState) => ({ ...prevState, autoSaveChanges: value })),
+		setAutoCommands: (value) => setState((prevState) => ({ ...prevState, autoCommands: value })),
+		setEnableLargeFileCheck: (value) => setState((prevState) => ({ ...prevState, enableLargeFileCheck: value })),
+		setLargeFileCheckMaxSize: (value) => setState((prevState) => ({ ...prevState, largeFileCheckMaxSize: value })),
+		setLargeFileCheckChunkSize: (value) => setState((prevState) => ({ ...prevState, largeFileCheckChunkSize: value })),
 		setShowAnnouncement: (value) => setState((prevState) => ({ ...prevState, shouldShowAnnouncement: value })),
 	}
 
