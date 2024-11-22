@@ -22,6 +22,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		setAlwaysAllowReadOnly,
 		autoSaveChanges,
 		setAutoSaveChanges,
+		autoCommands,
+		setAutoCommands,
 		openRouterModels,
 	} = useExtensionState()
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
@@ -37,7 +39,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 				{ type: "apiConfiguration", apiConfiguration },
 				{ type: "customInstructions", text: customInstructions ?? "" },
 				{ type: "alwaysAllowReadOnly", bool: alwaysAllowReadOnly ?? false },
-				{ type: "autoSaveChanges", bool: autoSaveChanges ?? false }
+				{ type: "autoSaveChanges", bool: autoSaveChanges ?? false },
+				{ type: "autoCommands", bool: autoCommands ?? false }
 			]
 			messages.forEach(msg => vscode.postMessage(msg))
 			onDone()
@@ -138,6 +141,22 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 							color: "var(--vscode-descriptionForeground)",
 						}}>
 						When enabled, JohnBot will automatically save file changes without showing the save/reject dialog.
+					</p>
+				</div>
+
+				<div style={{ marginBottom: 5 }}>
+					<VSCodeCheckbox
+						checked={autoCommands}
+						onChange={(e: any) => setAutoCommands(e.target.checked)}>
+						<span style={{ fontWeight: "500" }}>Auto-execute commands</span>
+					</VSCodeCheckbox>
+					<p
+						style={{
+							fontSize: "12px",
+							marginTop: "5px",
+							color: "var(--vscode-descriptionForeground)",
+						}}>
+						When enabled, commands will be executed automatically without requiring you to click the Run Command button.
 					</p>
 				</div>
 

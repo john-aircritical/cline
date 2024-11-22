@@ -35,7 +35,7 @@ interface ChatViewProps {
 export const MAX_IMAGES_PER_MESSAGE = 20 // Anthropic limits to 20 images
 
 const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryView }: ChatViewProps) => {
-	const { version, clineMessages: messages, taskHistory, apiConfiguration, autoSaveChanges } = useExtensionState()
+	const { version, clineMessages: messages, taskHistory, apiConfiguration, autoSaveChanges, autoCommands } = useExtensionState()
 
 	const task = useMemo(() => messages.at(0), [messages])
 	const modifiedMessages = useMemo(() => combineApiRequests(combineCommandSequences(messages.slice(1))), [messages])
@@ -62,6 +62,14 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const secondLastMessage = useMemo(() => messages.at(-2), [messages])
 
 	const handleAutoSave = useCallback(() => {
+		vscode.postMessage({ type: "askResponse", askResponse: "yesButtonClicked" })
+		setTextAreaDisabled(true)
+		setClineAsk(undefined)
+		setEnableButtons(false)
+		disableAutoScrollRef.current = false
+	}, [])
+
+	const handleAutoCommand = useCallback(() => {
 		vscode.postMessage({ type: "askResponse", askResponse: "yesButtonClicked" })
 		setTextAreaDisabled(true)
 		setClineAsk(undefined)
@@ -126,8 +134,12 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 							setTextAreaDisabled(isPartial)
 							setClineAsk("command")
 							setEnableButtons(!isPartial)
-							setPrimaryButtonText("Run Command")
-							setSecondaryButtonText("Reject")
+							if (autoCommands) {
+								handleAutoCommand()
+							} else {
+								setPrimaryButtonText("Run Command")
+								setSecondaryButtonText("Reject")
+							}
 							break
 						case "command_output":
 							setTextAreaDisabled(false)
@@ -186,7 +198,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					break
 			}
 		}
-	}, [lastMessage, secondLastMessage, autoSaveChanges, handleAutoSave])
+	}, [lastMessage, secondLastMessage, autoSaveChanges, autoCommands, handleAutoSave, handleAutoCommand])
 
 	useEffect(() => {
 		if (messages.length === 0) {

@@ -22,6 +22,7 @@ interface ExtensionStateContextType extends ExtensionState {
 	setCustomInstructions: (value?: string) => void
 	setAlwaysAllowReadOnly: (value: boolean) => void
 	setAutoSaveChanges: (value: boolean) => void
+	setAutoCommands: (value: boolean) => void
 	setShowAnnouncement: (value: boolean) => void
 }
 
@@ -119,6 +120,11 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setAutoSaveChanges: (value) => {
 			setState((prevState) => ({ ...prevState, autoSaveChanges: value }))
 			const message: WebviewMessage = { type: "autoSaveChanges", bool: value }
+			vscode.postMessage(message)
+		},
+		setAutoCommands: (value) => {
+			setState((prevState) => ({ ...prevState, autoCommands: value }))
+			const message: WebviewMessage = { type: "autoCommands", bool: value }
 			vscode.postMessage(message)
 		},
 		setShowAnnouncement: (value) => setState((prevState) => ({ ...prevState, shouldShowAnnouncement: value })),

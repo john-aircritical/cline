@@ -29,6 +29,7 @@ export type ExtensionMessage = ExtensionMessageBase & (
     | { type: "customInstructions"; text: string }
     | { type: "alwaysAllowReadOnly"; bool: boolean }
     | { type: "autoSaveChanges"; bool: boolean }
+    | { type: "autoCommands"; bool: boolean }
     | { type: "resetState" }
     | { type: "webviewDidLaunch" }
     | { type: "newTask"; text: string; images: string[] }
@@ -46,6 +47,7 @@ export interface ExtensionState {
     customInstructions?: string
     alwaysAllowReadOnly?: boolean
     autoSaveChanges?: boolean
+    autoCommands?: boolean
     uriScheme?: string
     clineMessages: ClineMessage[]
     taskHistory: HistoryItem[]

@@ -6,6 +6,7 @@ export interface WebviewMessage {
 		| "customInstructions"
 		| "alwaysAllowReadOnly"
 		| "autoSaveChanges"
+		| "autoCommands"
 		| "webviewDidLaunch"
 		| "newTask"
 		| "askResponse"
